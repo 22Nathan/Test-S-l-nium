@@ -4,9 +4,11 @@ from selenium import webdriver
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
-from selenium.common.exceptions import NoSuchElementException
+from selenium.common.exceptions import NoSuchElementException, WebDriverException, StaleElementReferenceException
 #from colorama import Fore, Back, Style
-#from selenium.webdriver.support import expected_conditions as EC
+from selenium.webdriver.support import expected_conditions as EC
+from selenium.webdriver.common.action_chains import ActionChains
+from selenium.webdriver.edge.service import Service
 
 import time
 import csv
@@ -18,7 +20,7 @@ driver = webdriver.Edge(options=options)
 
 # options = webdriver.ChromeOptions()
 # options.add_experimental_option( 'excludeSwitches', ['enable-logging'] )
-# driver = webdriver.Chrome( "C:\Program Files\Google\Chrome\Application\chrome.exe" )
+# driver = webdriver.Chrome( "C:\Program Files\Google\Chrome\Application\chrome.exe")
 
 
 
@@ -595,10 +597,15 @@ def test_find_article( addToCart , removeToCart ):
         try:
             time.sleep(1)
             msg = "-[x] click button add to cart - run" ; f_result.write( msg + '\n' )
+
+            elemtemp = driver.find_element( By.XPATH, '//button[ @data-ng-click="goToCart()" ]' )
+            driver.execute_script( "arguments[0].click();" , elemtemp )
+            time.sleep(1)
+
             elemV = driver.find_element( By.XPATH, '//button[ @data-ng-click="addProducts()" ]' )
-            #elemV.click()
             driver.execute_script( "arguments[0].click();" , elemV )
-            time.sleep(2.5)
+
+            time.sleep(2)
             msg = "-[x] click button add to cart - success" ; f_result.write( msg + '\n' )
             try:
                 time.sleep(1)
@@ -610,29 +617,69 @@ def test_find_article( addToCart , removeToCart ):
                 time.sleep(5)
             except NoSuchElementException:
                 msg = "--[x] click button view cart - failed" ; f_result.write( msg + '\n' )
+
+        except WebDriverException:
+            try:
+                time.sleep(1)
+
+                f_result.write( '-[v] \n' )
+
+                elemtemp = driver.find_element( By.XPATH, '//button[ @data-ng-click="goToCart()" ]' )
+                driver.execute_script( "arguments[0].click();" , elemtemp )
+                time.sleep(1)
+
+                elemV = driver.find_element( By.XPATH, '//button[ @data-ng-click="addProducts()" ]' )
+                driver.execute_script( "arguments[0].click();" , elemV )
+
+                time.sleep(2)
+                msg = "-[x] click button add to cart - success" ; f_result.write( msg + '\n' )
+                try:
+                    time.sleep(1)
+                    msg = "--[x] click button view cart - run" ; f_result.write( msg + '\n' )
+                    elemV = driver.find_element( By.XPATH, '//a[ contains( text() , "Voir mon panier" ) ]' )
+                    #elemV.click()
+                    driver.execute_script( "arguments[0].click();" , elemV )
+                    msg = "--[x] click button view cart - success" ; f_result.write( msg + '\n' )
+                    time.sleep(5)
+                except NoSuchElementException:
+                    msg = "--[x] click button view cart - failed" ; f_result.write( msg + '\n' )
+
+            except WebDriverException:
+                pass
         except NoSuchElementException:
             msg = "-[x] click button add to cart - failed" ; f_result.write( msg + '\n' )
+
 
     #################################################################
     ###########         SUPPRIMER DU PANIER              ############
     #################################################################
     def test_delete_all_cart():
         try:
-            msg = "[x] click button delete to cart - run" ; f_result.write( msg + '\n' )
+            time.sleep(4)
+            msg = "-[x] click button delete to cart - run" ; f_result.write( msg + '\n' )
             elemD = driver.find_elements( By.XPATH, '//button[@data-ng-click="remove()"]' )
             for e in elemD:
                 #e.click()
                 driver.execute_script( "arguments[0].click();" , e )
                 time.sleep(4)
-            msg = "[x] click button delete to cart - success" ; f_result.write( msg + '\n' )    
+            msg = "-[x] click button delete to cart - success" ; f_result.write( msg + '\n' )   
+        except StaleElementReferenceException:
+            elemD = driver.find_elements( By.XPATH, '//button[@data-ng-click="remove()"]' )
+            for e in elemD:
+                #e.click()
+                driver.execute_script( "arguments[0].click();" , e )
+                time.sleep(4)
+            msg = "-[x] click button delete to cart - success" ; f_result.write( msg + '\n' )  
         except NoSuchElementException:
-            msg = "[x] click button delete to cart - failed" ; f_result.write( msg + '\n' )
+            msg = "-[x] click button delete to cart - failed" ; f_result.write( msg + '\n' )
 
 
     try:
         with open( './dataFindArticle.csv' ) as csvF:
             with open('./feuilleResultats.md', 'w', encoding='utf-8') as f_result:
                 csvReader3 = csv.reader( csvF, delimiter=';' )
+
+                driver.maximize_window()
 
                 msg = "\n\n\n\n\n``_____________________________________________``"
                 msg = "**###################################################**\n" + \
@@ -643,6 +690,7 @@ def test_find_article( addToCart , removeToCart ):
                 driver.get("https://glisshop.com")
                 time.sleep(3)
 
+                #les cookies
                 elemCloseCookie = driver.find_element(By.XPATH, "//button[@id='tarteaucitronAllDenied2']")
                 #elemCloseCookie.click()
                 driver.execute_script( "arguments[0].click();" , elemCloseCookie )
@@ -655,7 +703,7 @@ def test_find_article( addToCart , removeToCart ):
                         elemP.send_keys(row3)
                         time.sleep(3)
 
-                        msg = "Champs :\n# [article]" ; f_result.write( msg + '\n' )
+                        msg = "Champs : \n# [Article]" ; f_result.write( msg + '\n' )
                         msg = "Début pour les données :\n# " + str(row3) ; f_result.write( msg + '\n\n' )
                         msg = "[x] Finding element - run" ; f_result.write( msg + '\n')
                         try:
@@ -668,12 +716,6 @@ def test_find_article( addToCart , removeToCart ):
                             time.sleep(3)
 
                             try: 
-                                f_result.write( '\n' )
-                                msg = "**###################################################**\n" + \
-                                      "**#########**     AJOUTER UN ARTICLE     **##########**\n" + \
-                                      "**###################################################**"
-                                f_result.write( msg + '\n\n' )
-
                                 msg = "[x] click the result - run" ; f_result.write( msg + '\n' )
                                 elemV = driver.find_element( By.XPATH, '//a[ @data-role="result-link" ]' )
                                 driver.execute_script( "arguments[0].click();" , elemV )
@@ -682,11 +724,16 @@ def test_find_article( addToCart , removeToCart ):
                                 time.sleep(4)
 
                                 if addToCart and bool(addToCart):
+                                    f_result.write( '\n' )
+                                    msg = "**###################################################**\n" + \
+                                          "**#########**     AJOUTER UN ARTICLE     **##########**\n" + \
+                                          "**###################################################**"
+                                    f_result.write( msg + '\n\n' )
                                     test_add_cart()
                                     if removeToCart and bool(removeToCart):
                                         f_result.write( '\n' )
                                         msg = "**###################################################**\n" + \
-                                              "**#########**     CHERCHER UN ARTICLE    **##########**\n" + \
+                                              "**#########**     SUPPRIMER LE PANNIER   **##########**\n" + \
                                               "**###################################################**"
                                         f_result.write( msg + '\n\n')
                                         test_delete_all_cart()
@@ -724,19 +771,19 @@ def test_find_article( addToCart , removeToCart ):
 #test_login_account( seDeconnecter = False , modifier = False )
 
         ##### Connecter et Déconnecter les comptes #####
-test_login_account( seDeconnecter = True , modifier = False )
+#test_login_account( seDeconnecter = True , modifier = False )
 
         ##### Connecter, Modifier et Déconnecter les comptes #####
 #test_login_account( seDeconnecter = True , modifier = True )
 
         ##### Chercher un article #####
-#test_find_article( addToCart = false , removeToCart = false )
+#test_find_article( addToCart = False , removeToCart = False )
 
         ##### Chercher un article , l'ajouter au panier #####
 #test_find_article( addToCart = True , removeToCart = False )
 
         ##### Chercher un article , l'ajouter au panier , supprimer tous les articles #####
-#test_find_article( addToCart = True , removeToCart = True  )
+test_find_article( addToCart = True , removeToCart = True  )
 
         ##### Fermer les fichiers #####
 closeFile()
